@@ -4,6 +4,7 @@ buildscript {
     }
     repositories {
         mavenLocal()
+        maven { url "https://nexus.ala.org.au/content/groups/public/" }
         maven { url "https://repo.grails.org/grails/core" }
     }
     dependencies {
@@ -16,7 +17,7 @@ plugins {
     id "com.jfrog.bintray" version "1.2"
 }
 
-version "2.0.0.BUILD-SNAPSHOT"
+version "2.0.0.ALA"
 group "org.grails.plugins"
 
 apply plugin: 'maven-publish'
@@ -40,6 +41,7 @@ targetCompatibility = 1.7
 
 repositories {
     mavenLocal()
+    maven { url "https://nexus.ala.org.au/content/groups/public/" }
     mavenCentral()
     maven { url "https://repo.grails.org/grails/core" }
 }
@@ -77,5 +79,37 @@ eclipse {
 idea {
     module {
         scopes.PROVIDED.plus += [configurations.provided]
+    }
+}
+
+publishing {
+    repositories {
+        maven {
+            name 'Nexus'
+            url "https://nexus.ala.org.au/content/repositories/${project.version.endsWith('-SNAPSHOT') ? 'snapshots' : 'releases' }"
+            credentials {
+                username = System.getenv('TRAVIS_DEPLOY_USERNAME')
+                password = System.getenv('TRAVIS_DEPLOY_PASSWORD')
+            }
+        }
+    }
+    publications {
+        mavenJar(MavenPublication) {
+            pom.withXml {
+                def pomNode = asNode()
+                pomNode.dependencyManagement.replaceNode {}
+
+                // simply remove dependencies without a version
+                // version-less dependencies are handled with dependencyManagement
+                // see https://github.com/spring-gradle-plugins/dependency-management-plugin/issues/8 for more complete solutions
+                pomNode.dependencies.dependency.findAll {
+                    it.version.text().isEmpty()
+                }.each {
+                    it.replaceNode {}
+                }
+            }
+            from components.java
+
+        }
     }
 }
